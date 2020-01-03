@@ -26,10 +26,10 @@ class Program
             // Set the texture name
             var name = Path.GetFileNameWithoutExtension(path);
 
-            if (name.Length > 16)
-                Console.WriteLine("Warning: '{0}' truncated to 16 characters.", name);
+            if (name.Length > 15)
+                Console.WriteLine("Warning: '{0}' truncated to 15 characters.", name);
 
-            for (int i = 0, n = Math.Min(16, name.Length); i < n; i++)
+            for (int i = 0, n = Math.Min(15, name.Length); i < n; i++)
                 texture.Name[i] = (byte)name[i];
 
             Console.WriteLine("Palettizing...");
