@@ -21,7 +21,7 @@ class Program
         {
             Console.WriteLine(path);
             var image   = Image.Load<Rgba32>(File.ReadAllBytes(path));
-            var texture = new Texture { Data = new Image<Gray8>(image.Width, image.Height) };
+            var texture = new Texture { Data = new Image<L8>(image.Width, image.Height) };
 
             // Set the texture name
             var name = Path.GetFileNameWithoutExtension(path);
@@ -48,14 +48,14 @@ class Program
         wad.Write(args[2]);
     }
 
-    static Gray8 NearestPaletteEntry(Rgb24[] palette, Rgba32 pixel)
+    static L8 NearestPaletteEntry(Rgb24[] palette, Rgba32 pixel)
     {
         if (pixel.A == 0)
-            return new Gray8(0);
+            return new L8(0);
 
         var dist  = float.PositiveInfinity;
         var color = new Vector3(pixel.R, pixel.G, pixel.B);
-        var min   = new Gray8(0);
+        var min   = new L8(0);
 
         for (var i = 0; i < palette.Length; i++)
         {
@@ -65,7 +65,7 @@ class Program
             if (cDist < dist)
             {
                 dist = cDist;
-                min  = new Gray8((byte)i);
+                min  = new L8((byte)i);
             }
         }
 

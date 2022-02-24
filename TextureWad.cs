@@ -8,7 +8,7 @@ using SixLabors.ImageSharp.Processing.Processors.Transforms;
 
 public unsafe struct Texture
 {
-    public Image<Gray8> Data;
+    public Image<L8> Data;
     public fixed byte Name[16];
 }
 
