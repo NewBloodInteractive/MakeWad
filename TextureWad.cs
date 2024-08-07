@@ -1,47 +1,44 @@
 ﻿using System.IO;
-using System.Text;
 using System.Collections.Generic;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using System.Runtime.CompilerServices;
 
-public unsafe struct Texture
+namespace MakeWad;
+
+public struct Texture
 {
     public Image<L8> Data;
-    public fixed byte Name[16];
+    public TextureName Name;
+    public TexturePalette Palette;
 }
 
-public class TextureWad
+[InlineArray(16)]
+public struct TextureName
 {
-    public IList<Texture> Textures { get; }
+    private byte _element0;
+}
 
-    public IReadOnlyList<Rgb24> Palette { get; set; }
+[InlineArray(256)]
+public struct TexturePalette
+{
+    private Rgb24 _element0;
+}
 
-    public int LumpCount
+public sealed class TextureWad
+{
+    public List<Texture> Textures { get; } = [];
+
+    public int LumpCount => Textures.Count;
+
+    public void Write(string path)
     {
-        get
-        {
-            if (Palette is null)
-                return Textures.Count;
-
-            return Textures.Count + 1;
-        }
-    }
-
-    public TextureWad()
-    {
-        Textures = new List<Texture>();
-        Palette  = null;
-    }
-
-    public unsafe void Write(string path)
-    {
-        using var fs = File.OpenWrite(path);
+        using var fs = File.Create(path);
         using var bw = new BinaryWriter(fs);
-        fs.SetLength(0);
 
-        bw.Write(new[] { (byte)'W', (byte)'A', (byte)'D', (byte)'2' });
+        bw.Write("WAD3"u8);
         bw.Write(LumpCount);
         bw.Write(0);
 
@@ -49,20 +46,21 @@ public class TextureWad
         // can avoid needing to store the sizes of each texture lump.
         var offsets = new int[Textures.Count + 1];
         var mips    = new int[4];
+
         for (int i = 0; i < Textures.Count; i++)
         {
             var texture = Textures[i];
             offsets[i]  = (int)fs.Position;
 
-            for (int j = 0; j < 16; j++)
-                bw.Write(texture.Name[j]);
-
+            bw.Write(texture.Name);
             bw.Write(texture.Data.Width);
             bw.Write(texture.Data.Height);
 
             // The offset to where the mipmap offsets are stored.
             var mipOffsets = (int)fs.Position;
-            for (int mip = 0; mip < 4; mip++) bw.Write(0);
+
+            for (int mip = 0; mip < 4; mip++)
+                bw.Write(0);
 
             // Write the mipmap texture data.
             for (int mip = 0; mip < 4; mip++)
@@ -71,18 +69,7 @@ public class TextureWad
                 var image = texture.Data;
 
                 if (mip > 0)
-                {
-                    // We need to calculate the mipmap textures ourself.
-                    image      = image.Clone();
-                    var width  = image.Width  / (2 * mip);
-                    var height = image.Height / (2 * mip);
-
-                    image.Mutate(context =>
-                    {
-                        var resampler = new NearestNeighborResampler();
-                        context.Resize(width, height, resampler);
-                    });
-                }
+                    image = image.Clone(context => context.Resize(image.Width >> mip, image.Height >> mip, new NearestNeighborResampler()));
 
                 for (int y = 0; y < image.Height; y++)
                 {
@@ -91,6 +78,21 @@ public class TextureWad
                         bw.Write(image[x, y].PackedValue);
                     }
                 }
+
+                if (mip > 0)
+                {
+                    image.Dispose();
+                }
+            }
+
+            // Write the palette data.
+            bw.Write((short)256);
+
+            foreach (var entry in texture.Palette)
+            {
+                bw.Write(entry.R);
+                bw.Write(entry.G);
+                bw.Write(entry.B);
             }
 
             using (bw.ScopedSeek(mipOffsets, SeekOrigin.Begin))
@@ -105,21 +107,9 @@ public class TextureWad
         // Fill in the final texture offset, marking the end.
         offsets[Textures.Count] = (int)fs.Position;
 
-        // The offset to the palette colour data.
-        var paletteOffset = (int)fs.Position;
-        
-        if (Palette is {})
-        {
-            foreach (var entry in Palette)
-            {
-                bw.Write(entry.R);
-                bw.Write(entry.G);
-                bw.Write(entry.B);
-            }
-        }
-
         // Write the lump directory offset into the header.
         var directoryOffset = (int)fs.Position;
+
         using (bw.ScopedSeek(8, SeekOrigin.Begin))
             bw.Write(directoryOffset);
 
@@ -127,26 +117,13 @@ public class TextureWad
         {
             var texture = Textures[i];
 
-            bw.Write(offsets[i]);
-            bw.Write(offsets[i + 1] - offsets[i]);
-            bw.Write(offsets[i + 1] - offsets[i]);
-            bw.Write((byte)'D');
-            bw.Write((byte)0);
-            bw.Write((short)0);
-
-            for (int j = 0; j < 16; j++)
-                bw.Write(texture.Name[j]);
-        }
-
-        if (Palette is {})
-        {
-            bw.Write(paletteOffset);
-            bw.Write(256 * 3);
-            bw.Write(256 * 3);
-            bw.Write((byte)'@');
-            bw.Write((byte)0);
-            bw.Write((short)0);
-            bw.Write(Encoding.ASCII.GetBytes("PALETTE\0\0\0\0\0\0\0\0\0"));
+            bw.Write(offsets[i]); // offset
+            bw.Write(offsets[i + 1] - offsets[i]); // length
+            bw.Write(offsets[i + 1] - offsets[i]); // uncompressed length
+            bw.Write((byte)'C'); // type
+            bw.Write((byte)0); // compression type
+            bw.Write((short)0); // unused
+            bw.Write(texture.Name);
         }
     }
 }

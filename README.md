@@ -1,2 +1,2 @@
 # MakeWad
-Generate a WAD2 file from a folder filled with PNG images
+Generate a WAD3 file from a folder filled with PNG images

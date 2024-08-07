@@ -1,5 +1,7 @@
 ﻿using System.IO;
 
+namespace MakeWad;
+
 public static class Extensions
 {
     public static StreamSeekDisposable ScopedSeek(this Stream stream, long offset, SeekOrigin origin)

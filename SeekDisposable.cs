@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 
+namespace MakeWad;
+
 public readonly struct StreamSeekDisposable : IDisposable
 {
     readonly Stream target;
